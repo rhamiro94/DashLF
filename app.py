@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 df = pd.read_csv("datos.csv")
 
 
-
 fecha_actual = datetime.now()
 
 # Construir la fecha de inicio del año actual
@@ -62,21 +61,26 @@ server = app.server
 app.layout = html.Div([
     html.H1("MAV 2024 ARG VALORES"),
 
-    html.Label("Selecciona un mes:"),
-    dcc.Dropdown(
-        id='month-dropdown',
-        options=[{'label': mes, 'value': mes} for mes in meses],
-        value=meses.tolist(),
-        multi=True,  # Establecer el valor predeterminado como el primer mes en el dataframe
-    ),
-
-    html.Label("Selecciona Segmento:"),
-    dcc.Dropdown(
-        id='category-dropdown',
-        options=[{'label': category, 'value': category} for category in df['Segmento'].unique()],  # Define las opciones del dropdown
-        value=[],
-        multi=True,
-    ),
+    html.Div([
+    html.Div([
+        html.Label("Selecciona un mes:"),
+        dcc.Dropdown(
+            id='month-dropdown',
+            options=[{'label': mes, 'value': mes} for mes in meses],
+            value=meses.tolist(),
+            multi=True,  # Establecer el valor predeterminado como el primer mes en el dataframe
+        ),
+    ], style={'width': '20%', 'display': 'inline-block', 'verticalAlign': 'top'}),  # Estilo para el primer dropdown
+    
+    html.Div([
+        html.Label("Selecciona Segmento:"),
+        dcc.Dropdown(
+            id='category-dropdown',
+            options=[{'label': category, 'value': category} for category in df['Segmento'].unique()],  # Define las opciones del dropdown
+            value=[],
+            multi=True,
+        ),
+    ], style={'width': '20%', 'display': 'inline-block', 'verticalAlign': 'top'})]),
     html.Div([
         dash_table.DataTable(
             id='table-1',
@@ -124,34 +128,31 @@ app.layout = html.Div([
     Input('month-dropdown', 'value'),
     Input('category-dropdown', 'value')
 )
-
 def update_tables(selected_month, categories):
-    # Copiar el DataFrame original para evitar modificarlo directamente
     filtered_df = df.copy()
 
-    # Filtrar por mes seleccionado
     if selected_month:
         filtered_df = filtered_df[filtered_df['Mes'].isin(selected_month)]
 
-    # Filtrar por categorías seleccionadas
     if categories:
         filtered_df = filtered_df[filtered_df['Segmento'].isin(categories)]
 
-    # Crear tablas pivotantes y figuras
-    # Suma por fila, saltando la primera columna
+    pivot_table1 = filtered_df.pivot_table(index='Tipo Instrumento', columns='Mes', values=' Monto', aggfunc='sum',
+                                           fill_value=0).reset_index()
+    columnas_a_sumar = pivot_table1.columns[1:]
     pivot_table1['Total'] = pivot_table1[columnas_a_sumar].sum(axis=1)
-    pivot_table1.loc['Total por Columna'] = ['Total'] + suma_por_columna.tolist()
+    pivot_table1.loc['Total por Columna'] = ['Total'] + pivot_table1[columnas_a_sumar].sum().tolist() + [pivot_table1['Total'].sum()]
+
 
     pivot_table2 = filtered_df.pivot_table(index='Segmento', columns='Periodo', values=' Tasa', aggfunc='mean',
                                            fill_value=0).reset_index()
     scatter_fig = px.scatter(filtered_df, x='dias_entre_fechas', y=' Tasa', color='Segmento', title='Scatter Plot')
-    bar_fig = px.bar(accumulated_df, x='Mes', y=' Monto', color='Segmento', barmode='stack',
-                     title='Instrumentos operados por mes')
+    bar_fig = px.bar(filtered_df.groupby(['Mes', 'Segmento'])[' Monto'].sum().reset_index(), x='Mes', y=' Monto',
+                     color='Segmento', barmode='stack', title='Instrumentos operados por mes')
     pivot_table2 = pivot_table2.round(2)
 
-    # Devolver los resultados para los componentes de la interfaz de usuario
     return pivot_table1.to_dict('records'), pivot_table2.to_dict('records'), scatter_fig, bar_fig
 
-
+# Ejecutar la aplicación
 if __name__ == '__main__':
-    app.run_server(debug=False, port=8050)
+    app.run_server(debug=True)
