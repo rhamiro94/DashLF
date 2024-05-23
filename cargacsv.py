@@ -11,9 +11,9 @@ from datetime import datetime, timedelta
 # Conecta a la base de datos PostgreSQL
 conn = psycopg2.connect(
     host="localhost",
-    database="xxxx",
+    database="mav2024",
     user="postgres",
-    password="xxxx"
+    password="Camila1995."
 )
 
 # Define una función para cargar los datos de PostgreSQL en un DataFrame
